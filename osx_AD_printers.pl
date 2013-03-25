@@ -77,6 +77,7 @@ my $print_auth_method='password';  # $print_auth_method='password' is the defaul
 my $print_user=''; 
 my $print_pwd=''; 
 my $delete_printers=0;  #set to 1 to delete printers that match $printer_patterns, but for which the user/computer is not in a group
+my $delete_mcx_printers=0;	#set to 1 to delete and replace mxc printers that would otherwise be managed by this script	
 
 #  Patterns for your printers
 #   If a group name matches the name pattern it is considered a printer group and added to %$ad_printers
@@ -165,25 +166,6 @@ my $ad_printers=getADPrinters($groups);
 
 ###
 
-
-
-### Add printers from AD 
-#
-debug("\nAttempt to add missing printers",0);
-
-foreach my $ad_printer (keys %$ad_printers) {
-  if (!defined $local_printers->{$ad_printer}) {
-    my $driver=$ad_printers->{$ad_printer}{driver};
-    my $location=$ad_printers->{$ad_printer}{location};
-    my $room=$ad_printers->{$ad_printer}{room};
-    debug("  try to add $ad_printer",0);
-    $driver =~ s/\ /\\ /g;
-    exec_command("lpadmin -p $ad_printer $print_auth_method -v smb://$print_auth$print_server/$ad_printer -m $driver -L \"$location $room\" -E",1);
-    $local_printers->{$ad_printer}=1; #if by some chance the same printer is listed twice this prevents adding twice
-  }
-}
-###
-
 ### Remove shared printers not listed in AD
 #
 debug("\nAttempt to delete shared printers that shouldn't be connected anymore",0);
@@ -203,6 +185,24 @@ foreach my $local_printer (keys %$local_printers) {
   }
 }
 ###
+
+### Add printers from AD 
+#
+debug("\nAttempt to add missing printers",0);
+
+foreach my $ad_printer (keys %$ad_printers) {
+  if (!defined $local_printers->{$ad_printer}) {
+    my $driver=$ad_printers->{$ad_printer}{driver};
+    my $location=$ad_printers->{$ad_printer}{location};
+    my $room=$ad_printers->{$ad_printer}{room};
+    debug("  try to add $ad_printer",0);
+    $driver =~ s/\ /\\ /g;
+    exec_command("lpadmin -p $ad_printer $print_auth_method -v smb://$print_auth$print_server/$ad_printer -m $driver -L \"$location $room\" -E",1);
+    $local_printers->{$ad_printer}=1; #if by some chance the same printer is listed twice this prevents adding twice
+  }
+}
+###
+
 
 ### Check the results
 #
@@ -245,7 +245,10 @@ sub getLocalPrinters {
     my @p=split(/\s+/,$local_printer);
     my $name=substr($p[2],0,-1);
     my $path=$p[3];
-    if (!defined $local_printers{$path} && index($path,$print_server)>=0 && hasADGroup($name)) {
+    if (!defined $local_printers{$path} 
+      && (index($path,$print_server)>=0 && hasADGroup($name))
+      || ($delete_mcx_printers && $name=~/^mcx/)) {
+
       debug("-- Printer: $name with path: $path is managed by this script\n",0);
       $local_printers{$name}=1;
     }
