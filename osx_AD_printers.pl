@@ -87,11 +87,24 @@ my $printer_patterns;
 		'name'=>qr/(\w+)-(\w+)-hp(\S+)/i, 				# matches something like: BldgA-Rm1-HP2200
 		'model'=>sub { my ($model)=@_; return "LaserJet $model"}, 	# in the above example, would result in "LaserJet 2200"
 		'drivers'=>[
-			qr/(gutenprint.*expert)/				# matches a gutenprint print driver name
+			qr/^(Library.*\.gz)/,					# PPD drivers
+			qr/(gutenprint.*expert)/				# gutenprint drivers
 		]
 	}
 );
 ###### end of config
+
+### Make sure that the configurations seem valid
+#
+# check the $print_server config
+my $error=exec_command("ping -c 1 $print_server | grep -i \"bytes from\"",0);
+if (!$error) { debug("$print_server could not be contacted",1); exit 1;}
+
+$error=exec_command("ping -c 1 $ad_server | grep -i \"bytes from\"",0);
+if (!$error) { debug("$ad_server could not be contacted",1); exit 1;}
+
+###
+
 
 my $print_auth='';
 if ($print_auth_method eq 'password') {
@@ -155,6 +168,7 @@ foreach my $ad_printer (keys %$ad_printers) {
 		my $location=$ad_printers->{$ad_printer}{location};
 		my $room=$ad_printers->{$ad_printer}{room};
 		debug("  try to add $ad_printer",0);
+		$driver =~ s/\ /\\ /g;
 		exec_command("lpadmin -p $ad_printer $print_auth_method -v smb://$print_auth$print_server/$ad_printer -m $driver -L \"$location $room\" -E",1);
 		$local_printers->{$ad_printer}=1; #if by some chance the same printer is listed twice this prevents adding twice
 	}
@@ -215,7 +229,8 @@ sub getLocalPrinters {
 	        my @p=split(/\s+/,$local_printer);
 	        my $name=substr($p[2],0,-1);
 	        my $path=$p[3];
-	        if (!defined $local_printers{$path} && $path =~ /$print_server/) {
+	        if (!defined $local_printers{$path} && index($path,$print_server)>=0) {
+			debug("Add local printer: $name with path: $path to list",0);
 			$local_printers{$name}=1;		
 	        }
 	}
