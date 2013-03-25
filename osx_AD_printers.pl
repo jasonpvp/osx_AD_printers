@@ -22,6 +22,14 @@
 #   Printer share name: OFFICE-RM13-HP2200
 #   Group name:         OFFICE-RM13-HP2200 
 #
+############## !!!WARNING!!! #################
+#	$delete_printers=0 by default, meaning printers will be added by this script, but not deleted
+#	Before turngin this setting on below ($delete_printers=1), you should check your configurations thoroughly
+#	And once turned on, test thoroughly on computers that have manually added printers not connected to $print_server
+#	Only printers that have the $print_server string in their path attribute should be eligible for deletion
+#	But it's up to you to test with your configs and make sure!
+#	One way to be relatively sure it's safe is to use the fully qualified domain name for $print_server, not just the hostname
+####################################
 
 ### SET CONFIGURATION NEXT PAGE DOWN ###
 
@@ -68,7 +76,7 @@ my $print_auth_method='password';  # $print_auth_method='password' is the defaul
 # Otherwise, leave both as empty strings to prompt user for logon info or if using kerberos
 my $print_user=''; 
 my $print_pwd=''; 
-my $delete_printers=1;  #set to 0 to never delete printers
+my $delete_printers=0;  #set to 1 to delete printers that match $printer_patterns, but for which the user/computer is not in a group
 
 #  Patterns for your printers
 #   If a group name matches the name pattern it is considered a printer group and added to %$ad_printers
@@ -97,10 +105,10 @@ my $printer_patterns;
 
 ### Make sure that the configurations seem valid
 #
-# check the $print_server config
+# check the $print_server setting
 my $error=exec_command("ping -c 1 $print_server | grep -i \"bytes from\"",0);
 if (!$error) { debug("$print_server could not be contacted",1); exit 1;}
-
+# checj the $ad_server setting
 $error=exec_command("ping -c 1 $ad_server | grep -i \"bytes from\"",0);
 if (!$error) { debug("$ad_server could not be contacted",1); exit 1;}
 
