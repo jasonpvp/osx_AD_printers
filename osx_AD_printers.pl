@@ -23,12 +23,12 @@
 #   Group name:         OFFICE-RM13-HP2200 
 #
 ############## !!!WARNING!!! #################
-#	$delete_printers=0 by default, meaning printers will be added by this script, but not deleted
-#	Before turngin this setting on below ($delete_printers=1), you should check your configurations thoroughly
-#	And once turned on, test thoroughly on computers that have manually added printers not connected to $print_server
-#	Only printers that have the $print_server string in their path attribute should be eligible for deletion
-#	But it's up to you to test with your configs and make sure!
-#	One way to be relatively sure it's safe is to use the fully qualified domain name for $print_server, not just the hostname
+#  $delete_printers=0 by default, meaning printers will be added by this script, but not deleted
+#  Before turngin this setting on below ($delete_printers=1), you should check your configurations thoroughly
+#  And once turned on, test thoroughly on computers that have manually added printers not connected to $print_server
+#  Only printers that have the $print_server string in their path attribute and AD groups with the same name should be eligible for deletion
+#  But it's up to you to test with your configs and make sure!
+#  One way to be relatively sure it's safe is to use the fully qualified domain name for $print_server, not just the hostname
 ####################################
 
 ### SET CONFIGURATION NEXT PAGE DOWN ###
@@ -231,6 +231,8 @@ exit 0;
 ##### subroutines ######
 
 ### get locally installed printers
+#   that connect to $print_server
+#   and for which there are AD groups with the same name as the printer
 #
 sub getLocalPrinters {
 
@@ -240,18 +242,30 @@ sub getLocalPrinters {
   my %local_printers=();
 
   foreach my $local_printer (@local_printers) {
-          my @p=split(/\s+/,$local_printer);
-          my $name=substr($p[2],0,-1);
-          my $path=$p[3];
-          if (!defined $local_printers{$path} && index($path,$print_server)>=0) {
-      debug("Add local printer: $name with path: $path to list",0);
-      $local_printers{$name}=1;    
-          }
+    my @p=split(/\s+/,$local_printer);
+    my $name=substr($p[2],0,-1);
+    my $path=$p[3];
+    if (!defined $local_printers{$path} && index($path,$print_server)>=0 && hasADGroup($name)) {
+      debug("-- Printer: $name with path: $path is managed by this script\n",0);
+      $local_printers{$name}=1;
+    }
+    else {
+      debug("   Skip $name\n",0);
+    }
   }
   return \%local_printers;
 }
 ###
 
+
+###### Test whether a printer name has an AD group
+#
+sub hasADGroup {
+  my ($name)=@_;
+  my $result=exec_command("ldapsearch -x -LLL -h $ad_server -b $base_dn -D $bind_user -E pr=2000/noprompt -w $bind_pwd '(cn=$name)' cn | grep -i \"cn: $name\"",0);
+  return ($result=~/$name/i);
+}
+######
 
 ###### Get groups CN of which CN is a member, including nested groups
 #
