@@ -68,6 +68,7 @@ my $print_auth_method='password';  # $print_auth_method='password' is the defaul
 # Otherwise, leave both as empty strings to prompt user for logon info or if using kerberos
 my $print_user=''; 
 my $print_pwd=''; 
+my $delete_printers=1;	#set to 0 to never delete printers
 
 #  Patterns for your printers
 #   If a group name matches the name pattern it is considered a printer group and added to %$ad_printers
@@ -181,8 +182,13 @@ debug("\nAttempt to delete shared printers that shouldn't be connected anymore",
 foreach my $local_printer (keys %$local_printers) {
 	my $debug_msg="  Check if $local_printer should be installed";
 	unless (defined $ad_printers->{$local_printer}) {
-		debug("$debug_msg... try to delete",0);
-		exec_command("/usr/sbin/lpadmin -x $local_printer",1);
+		if ($delete_printers) {
+			debug("$debug_msg... try to delete",0);
+			exec_command("/usr/sbin/lpadmin -x $local_printer",1);
+		}
+		else {
+			debug("$debug_msg... \$delete_printers is turned off, but this should have been deleted",1);
+		}
 	}
 	else {
 		debug("$debug_msg... OK!",0);
