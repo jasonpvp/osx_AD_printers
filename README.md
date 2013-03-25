@@ -58,3 +58,4 @@
 ## Removing printers
 	If you remove a user/computer from all groups which would result in it having a shared printer installed, the printer is removed from the system
 	This only applies to printers which are shared from $print_server. 
+
